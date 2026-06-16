@@ -56,7 +56,7 @@ class LLSImageProcessorGUI:
         # LAZ Colorization parameters
         self.colorize_laz = tk.BooleanVar(value=False)
         self.voxel_size = tk.DoubleVar(value=0.01)
-        self.voxel_rgb_method = tk.StringVar(value='nearest')
+        self.voxel_rgb_method = tk.StringVar(value='median')
         
         # GeoTIFF parameters
         self.utm_zone = tk.IntVar(value=16)
