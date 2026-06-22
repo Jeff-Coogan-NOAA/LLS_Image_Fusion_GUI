@@ -41,9 +41,14 @@ class LLSImageProcessorGUI:
         self.skip_interval = tk.IntVar(value=1)
         
         # Camera parameters
-        self.lever_arm_x = tk.DoubleVar(value=0.1044)
-        self.lever_arm_y = tk.DoubleVar(value=0.6246)
-        self.lever_arm_z = tk.DoubleVar(value=0.0826)
+        # stokey
+        # self.lever_arm_x = tk.DoubleVar(value=0.1044)
+        # self.lever_arm_y = tk.DoubleVar(value=0.6246)
+        # self.lever_arm_z = tk.DoubleVar(value=0.0826)
+        # SN402
+        self.lever_arm_x = tk.DoubleVar(value=0.125813)
+        self.lever_arm_y = tk.DoubleVar(value=0.945584)
+        self.lever_arm_z = tk.DoubleVar(value=-0.213513)
         self.pitch_offset = tk.DoubleVar(value=0.010)
         self.roll_offset = tk.DoubleVar(value=0.010)
         self.heading_offset = tk.DoubleVar(value=0.000)
