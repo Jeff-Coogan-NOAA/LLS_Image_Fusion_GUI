@@ -612,6 +612,26 @@ class LLSImageProcessorGUI:
                 orig_csv = self.image_list_csv.get()
                 df_orig = pd.read_csv(orig_csv)
                 df_norm = self.normalize_image_df(df_orig)
+                
+                # Filter out images with altitude > 15 meters
+                initial_count = len(df_norm)
+                if 'AUV_Altitude' in df_norm.columns:
+                    df_norm = df_norm[df_norm['AUV_Altitude'] <= 15.0]
+                    filtered_count = initial_count - len(df_norm)
+                    if filtered_count > 0:
+                        self.log_message(f"Filtered out {filtered_count} images with altitude > 15m (kept {len(df_norm)} images)")
+                    
+                    # Update selected_images list if it exists, to match altitude filter
+                    if selected_images is not None:
+                        valid_filenames = set(df_norm['file_name'].tolist())
+                        original_selected = len(selected_images)
+                        selected_images = [img for img in selected_images if img in valid_filenames]
+                        removed = original_selected - len(selected_images)
+                        if removed > 0:
+                            self.log_message(f"Removed {removed} selected images due to altitude filter")
+                else:
+                    self.log_message("Warning: AUV_Altitude column not found - no altitude filtering applied")
+                
                 normalized_csv_path = os.path.join(output_base, 'normalized_image_list.csv')
                 df_norm.to_csv(normalized_csv_path, index=False)
                 self.log_message(f"Wrote normalized image list to {normalized_csv_path}")

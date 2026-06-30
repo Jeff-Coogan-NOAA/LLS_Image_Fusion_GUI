@@ -144,6 +144,82 @@ def create_panoramic_strips(
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+def _validate_crs_for_merge(
+    datasets: List[rasterio.DatasetReader],
+    log: Callable[[str], None],
+) -> None:
+    """Validate that all datasets have compatible CRS for merging.
+    
+    Raises RuntimeError if CRS issues are detected.
+    """
+    if not datasets:
+        return
+    
+    # Check that all datasets have the same CRS
+    reference_crs = datasets[0].crs
+    log(f"    Reference CRS: {reference_crs}")
+    
+    for ds in datasets[1:]:
+        if ds.crs != reference_crs:
+            raise RuntimeError(
+                f"CRS mismatch detected: {os.path.basename(ds.name)} uses {ds.crs}, "
+                f"but first file uses {reference_crs}. All GeoTIFFs must share the same CRS."
+            )
+    
+    # Warn if using geographic coordinates (lat/lon)
+    if reference_crs.is_geographic:
+        log(
+            f"    WARNING: GeoTIFFs use geographic CRS ({reference_crs}). "
+            f"Resolution parameter will be interpreted as degrees, not meters. "
+            f"Consider reprojecting to a projected CRS (e.g., UTM) for accurate metric resolution."
+        )
+
+
+def _calculate_merge_dimensions(
+    datasets: List[rasterio.DatasetReader],
+    resolution: float,
+) -> dict:
+    """Calculate expected output dimensions for a merge operation.
+    
+    Returns dict with 'width', 'height', 'width_m', 'height_m'.
+    """
+    from rasterio.merge import merge
+    
+    # Get bounds of all datasets in their common CRS
+    min_x, min_y, max_x, max_y = datasets[0].bounds
+    
+    # Track individual bounds for diagnostics
+    all_bounds = []
+    for ds in datasets:
+        bounds = ds.bounds
+        all_bounds.append({
+            'file': os.path.basename(ds.name),
+            'bounds': bounds,
+            'width': bounds.right - bounds.left,
+            'height': bounds.top - bounds.bottom,
+        })
+        min_x = min(min_x, bounds.left)
+        min_y = min(min_y, bounds.bottom)
+        max_x = max(max_x, bounds.right)
+        max_y = max(max_y, bounds.top)
+    
+    # Calculate dimensions at the target resolution
+    width_units = max_x - min_x
+    height_units = max_y - min_y
+    
+    width_pixels = int(np.ceil(width_units / resolution))
+    height_pixels = int(np.ceil(height_units / resolution))
+    
+    return {
+        'width': width_pixels,
+        'height': height_pixels,
+        'width_m': width_units,
+        'height_m': height_units,
+        'bounds': (min_x, min_y, max_x, max_y),
+        'individual_bounds': all_bounds,
+    }
+
+
 def _merge_strip(
     tif_paths: List[str],
     output_path: str,
@@ -176,7 +252,49 @@ def _merge_strip(
         if not valid_datasets:
             raise RuntimeError("No valid georeferenced GeoTIFFs could be opened for this strip.")
 
+        # Validate CRS consistency and type
+        _validate_crs_for_merge(valid_datasets, log)
+
         log(f"    Merging {len(valid_datasets)} valid dataset(s)…")
+
+        # Calculate and validate output dimensions before attempting merge
+        expected_dims = _calculate_merge_dimensions(valid_datasets, resolution_m)
+        log(f"    Expected output: {expected_dims['width']:,} x {expected_dims['height']:,} pixels "
+            f"({expected_dims['width_m']:.1f} x {expected_dims['height_m']:.1f} m)")
+        
+        # Analyze individual file dimensions to detect outliers
+        bounds_info = expected_dims['individual_bounds']
+        widths = [b['width'] for b in bounds_info]
+        heights = [b['height'] for b in bounds_info]
+        
+        median_width = np.median(widths)
+        median_height = np.median(heights)
+        
+        # Flag files with dimensions > 10x median (likely bad georeferencing)
+        outliers = []
+        for b in bounds_info:
+            if b['width'] > 10 * median_width or b['height'] > 10 * median_height:
+                outliers.append(b)
+        
+        if outliers:
+            log(f"    WARNING: {len(outliers)} file(s) have unusually large dimensions (>10x median):")
+            log(f"    Median dimensions: {median_width:.1f} x {median_height:.1f} m")
+            for outlier in outliers[:5]:  # Show first 5 outliers
+                log(f"      - {outlier['file']}: {outlier['width']:.1f} x {outlier['height']:.1f} m")
+            if len(outliers) > 5:
+                log(f"      ... and {len(outliers) - 5} more")
+            log("    These files likely have incorrect georeferencing and should be excluded or fixed.")
+        
+        # Safety check: prevent absurdly large outputs
+        max_pixels = 100_000_000  # 100 megapixels per band
+        total_pixels = expected_dims['width'] * expected_dims['height']
+        if total_pixels > max_pixels:
+            raise RuntimeError(
+                f"Output would be {total_pixels:,} pixels ({total_pixels / 1e6:.1f} MP), "
+                f"exceeding safety limit of {max_pixels:,} pixels ({max_pixels / 1e6:.1f} MP). "
+                f"This may indicate incorrect georeferencing. Check that all GeoTIFFs use a "
+                f"projected CRS (e.g., UTM) and have correct affine transforms."
+            )
 
         # rasterio.merge handles all reprojection / resampling internally.
         # res=(resolution_m, resolution_m) controls the output pixel size.
