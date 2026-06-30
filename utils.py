@@ -282,6 +282,35 @@ def imu_to_camera_enu(
     )
 
 
+def lat_lon_to_utm_zone(latitude: float, longitude: float) -> Tuple[int, str]:
+    """
+    Calculate UTM zone and hemisphere from latitude and longitude.
+    
+    Parameters:
+    -----------
+    latitude : float
+        Latitude in degrees (-90 to 90)
+    longitude : float
+        Longitude in degrees (-180 to 180)
+        
+    Returns:
+    --------
+    Tuple[int, str]
+        (utm_zone, hemisphere) where hemisphere is 'N' or 'S'
+    """
+    # UTM zone calculation: longitude ranges from -180 to 180
+    # Each zone is 6 degrees wide, starting at -180
+    utm_zone = int((longitude + 180) / 6) + 1
+    
+    # Ensure zone is in valid range (1-60)
+    utm_zone = max(1, min(60, utm_zone))
+    
+    # Hemisphere based on latitude
+    hemisphere = 'N' if latitude >= 0 else 'S'
+    
+    return utm_zone, hemisphere
+
+
 def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """
     Calculate the great circle distance between two points on Earth in meters.

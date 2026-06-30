@@ -72,7 +72,7 @@ class LLSImageProcessorGUI:
         self.create_panoramic_strips = tk.BooleanVar(value=False)
         self.strip_input_mode = tk.StringVar(value='from_run')
         self.strip_geotiff_dir = tk.StringVar()
-        self.images_per_strip = tk.IntVar(value=100)
+        self.images_per_strip = tk.IntVar(50)
         self.strip_resolution_m = tk.DoubleVar(value=0.005)
         self.strip_prefix = tk.StringVar(value='strip')
 
@@ -177,14 +177,14 @@ class LLSImageProcessorGUI:
         gt_frame = ttk.LabelFrame(parent, text="GeoTIFF Parameters", padding=10)
         gt_frame.pack(fill='x', padx=10, pady=10)
         
-        ttk.Label(gt_frame, text="UTM Zone:").grid(row=0, column=0, sticky='w', pady=5)
-        ttk.Spinbox(gt_frame, from_=1, to=60, textvariable=self.utm_zone, width=10).grid(row=0, column=1, sticky='w', padx=5, pady=5)
-        
-        ttk.Label(gt_frame, text="Hemisphere:").grid(row=1, column=0, sticky='w', pady=5)
-        ttk.Combobox(gt_frame, textvariable=self.utm_hemisphere, values=['N', 'S'], width=8, state='readonly').grid(row=1, column=1, sticky='w', padx=5, pady=5)
+        ttk.Label(gt_frame, text="UTM Zone & Hemisphere:", font=('Arial', 9, 'bold')).grid(row=0, column=0, columnspan=3, sticky='w', pady=(5,2))
+        ttk.Label(gt_frame, text="Automatically calculated from image latitude/longitude",
+                  font=('Arial', 8, 'italic'), foreground='gray').grid(row=1, column=0, columnspan=3, sticky='w', padx=5, pady=(0,10))
         
         ttk.Label(gt_frame, text="DPI:").grid(row=2, column=0, sticky='w', pady=5)
         ttk.Spinbox(gt_frame, from_=100, to=1000, increment=100, textvariable=self.dpi, width=10).grid(row=2, column=1, sticky='w', padx=5, pady=5)
+        ttk.Label(gt_frame, text="Output image resolution (higher = more detail, larger file)",
+                  font=('Arial', 8, 'italic')).grid(row=2, column=2, sticky='w', padx=5)
         
         # LAZ Colorization specific parameters
         laz_frame = ttk.LabelFrame(parent, text="LAZ Colorization Parameters", padding=10)
@@ -658,8 +658,8 @@ class LLSImageProcessorGUI:
                     pitch_offset=self.pitch_offset.get(),
                     roll_offset=self.roll_offset.get(),
                     heading_offset=self.heading_offset.get(),
-                    utm_zone=self.utm_zone.get(),
-                    utm_hemisphere=self.utm_hemisphere.get(),
+                    utm_zone=None,  # Auto-calculate from image lat/lon
+                    utm_hemisphere=None,  # Auto-calculate from image lat/lon
                     dpi=self.dpi.get(),
                     progress_callback=self.log_message
                 )

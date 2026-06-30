@@ -242,8 +242,8 @@ def process_images_to_geotiffs(
     pitch_offset: float = 0.010,
     roll_offset: float = 0.010,
     heading_offset: float = 0.000,
-    utm_zone: int = 16,
-    utm_hemisphere: str = 'N',
+    utm_zone: Optional[int] = None,
+    utm_hemisphere: Optional[str] = None,
     dpi: int = 500,
     progress_callback: Optional[Callable[[str], None]] = None
 ) -> dict:
@@ -264,10 +264,10 @@ def process_images_to_geotiffs(
         Lever arm offsets
     pitch_offset, roll_offset, heading_offset : float
         Angular offsets in degrees
-    utm_zone : int
-        UTM zone number
-    utm_hemisphere : str
-        'N' or 'S'
+    utm_zone : Optional[int]
+        UTM zone number (if None, auto-calculated from image lat/lon)
+    utm_hemisphere : Optional[str]
+        'N' or 'S' (if None, auto-calculated from image lat/lon)
     dpi : int
         Output resolution
     progress_callback : Optional[Callable[[str], None]]
@@ -321,7 +321,7 @@ import rasterio
 from rasterio.transform import Affine
 from rasterio.crs import CRS
 from typing import Optional, Callable
-from utils import pixels_to_world_coordinates, imu_to_camera_enu
+from utils import pixels_to_world_coordinates, imu_to_camera_enu, lat_lon_to_utm_zone
 
 def process_image_to_geotiff(
     image_row: pd.Series,
@@ -333,13 +333,15 @@ def process_image_to_geotiff(
     pitch_offset: float = 0.010,
     roll_offset: float = 0.010,
     heading_offset: float = 0.000,
-    utm_zone: int = 16,
-    utm_hemisphere: str = 'N',
+    utm_zone: Optional[int] = None,
+    utm_hemisphere: Optional[str] = None,
     progress_callback: Optional[Callable[[str], None]] = None
 ) -> bool:
     """
     Process a single image to generate a georeferenced GeoTIFF using 
     OpenCV Homography for true perspective orthorectification.
+    
+    UTM zone and hemisphere are automatically calculated from image lat/lon if not provided.
     """
     def log(msg: str):
         if progress_callback:
@@ -360,6 +362,14 @@ def process_image_to_geotiff(
         pitch = -image_row['AUV_Pitch']
         roll = image_row['AUV_Roll']
         heading = image_row['AUV_Heading']
+        
+        # Auto-calculate UTM zone and hemisphere from lat/lon if not provided
+        if utm_zone is None or utm_hemisphere is None:
+            latitude = image_row['AUV_Latitude']
+            longitude = image_row['AUV_Longitude']
+            calc_zone, calc_hemisphere = lat_lon_to_utm_zone(latitude, longitude)
+            utm_zone = utm_zone if utm_zone is not None else calc_zone
+            utm_hemisphere = utm_hemisphere if utm_hemisphere is not None else calc_hemisphere
         
         camera_pos, shift = imu_to_camera_enu(
             image_row['AUV_Easting'], image_row['AUV_Northing'], image_row['AUV_Depth'],
