@@ -5,6 +5,9 @@ import os
 import numpy as np
 import pandas as pd
 import cv2
+import matplotlib
+# Use a non-interactive backend to avoid starting GUI windows from background threads
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import rasterio
 from rasterio.transform import Affine
