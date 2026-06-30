@@ -72,7 +72,7 @@ class LLSImageProcessorGUI:
         self.create_panoramic_strips = tk.BooleanVar(value=False)
         self.strip_input_mode = tk.StringVar(value='from_run')
         self.strip_geotiff_dir = tk.StringVar()
-        self.images_per_strip = tk.IntVar(50)
+        self.images_per_strip = tk.IntVar(value=50)
         self.strip_resolution_m = tk.DoubleVar(value=0.005)
         self.strip_prefix = tk.StringVar(value='strip')
 
